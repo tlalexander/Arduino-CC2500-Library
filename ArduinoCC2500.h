@@ -68,7 +68,9 @@ public:
     /*!
      * Sends command to Data     
      */
-    void sendCommand(unsigned char data);
+    void sendData(unsigned char *data, unsigned char length);
+
+    void ReceiveData(unsigned char *data, unsigned char length);
 
     /*!
      * Copy constructor, disabled.

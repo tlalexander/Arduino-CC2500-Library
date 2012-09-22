@@ -170,6 +170,53 @@ void ArduinoCC2500::init()
 
 
 
+void ArduinoCC2500::ReceiveData(unsigned char *data, unsigned char length)
+{
+	
+	unsigned char result;
+
+    	// SIDLE: exit RX/TX
+    	m_cc2500.sendStrobeCommand(CC2500_CMD_SIDLE);
+
+	// SRX: enable RX
+        m_cc2500.sendStrobeCommand(CC2500_CMD_SRX);
+
+	// wait a bit
+        delay(10);
+
+	// read RXBYTES register, result should be 0x11
+        result = m_cc2500.sendCommand(0xFB, 0x00);
+
+	if (result >= 0x11) 
+	{
+		// single access RX FIFO to get number of bytes to read, should be 0x3C
+		result = m_cc2500.sendCommand(0xBF, 0x00);
+
+		if (result == length) {
+
+                	// read RX FIFO
+                	m_cc2500.sendBurstCommand(0xFF, data, result);                	
+
+                	// read 2 remaining bytes
+                	m_cc2500.sendCommand(0xBF, 0x00);
+                	m_cc2500.sendCommand(0xBF, 0x00);
+            	} else {
+                	// something is not right, clear RX FIFO
+                	result = m_cc2500.sendCommand(0xFB, 0x00);
+
+                	for (int i=0; i<result; ++i) {
+                    		m_cc2500.sendCommand(0xBF, 0x00);
+                	}
+            	}
+	
+	}
+
+	// SIDLE: exit RX/TX
+    	m_cc2500.sendStrobeCommand(CC2500_CMD_SIDLE);	
+
+}
+
+
 
 
 /*
@@ -258,7 +305,7 @@ void ArduinoCC2500::ReceiveData()
 */
 
 
-void ArduinoCC2500::sendCommand(unsigned char data)
+void ArduinoCC2500::sendData(unsigned char *data, unsigned char length)
 {
     
         
@@ -266,26 +313,29 @@ void ArduinoCC2500::sendCommand(unsigned char data)
         while ((m_cc2500.sendByte(0xF5) & 0x1F) > 1) {
         };
 
-        // prepare burst data
-        unsigned char packet[2];
+        // prepare burst Packet
+        unsigned char packet[length];
 
-        // command
-        packet[0] = 0x0E;
+        // First Byte = Length Of Packet = 60 = 0x3C
+        packet[0] = length;
 
         
 
-        // lamp command
-        packet[1] = data;
+	for(int i = 1; i < length; i++)
+	{	        	
+        	packet[i] = data[i];
+	}
 
 
-
-        // SIDLE: exit RX/TX
+       	// SIDLE: exit RX/TX
         m_cc2500.sendStrobeCommand(CC2500_CMD_SIDLE);
 
         // fill TX FIFO
-        m_cc2500.sendBurstCommand(0x7F, packet, 15);
+        m_cc2500.sendBurstCommand(0x7F, packet, length);
 
         // STX: enable TX
         m_cc2500.sendStrobeCommand(CC2500_CMD_STX);
+
+	
     
 }
